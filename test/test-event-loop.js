@@ -1,6 +1,16 @@
 let nethackStart = require("../src/nethackShim.js");
 Error.stackTraceLimit = 20;
 
+// debugging to make sure the JavaScript event loop isn't blocked
+const {performance} = require("perf_hooks");
+let currentTime = 0;
+let lastTime = 0;
+setInterval(() => {
+    lastTime = currentTime;
+    currentTime = performance.now();
+    console.log("Time since last JavaScript loop:", currentTime - lastTime);
+}, 10);
+
 let Module = {};
 let winCount = 0;
 

@@ -19,6 +19,8 @@ function nethackStart(cb, inputModule = {}) {
     userCallback = cb;
 
     // Emscripten Module config
+    let {nethackOptions} = inputModule;
+    delete inputModule.nethackOptions;
     Module = inputModule;
     savedOnRuntimeInitialized = Module.onRuntimeInitialized;
     Module.onRuntimeInitialized = function(... args) {
@@ -36,6 +38,12 @@ function nethackStart(cb, inputModule = {}) {
             savedOnRuntimeInitialized(... args);
         }
     };
+
+    // configure environment variable to set NetHack options
+    Module.preRun = [setupNethackOptions];
+    function setupNethackOptions() {
+        Module.ENV.NETHACKOPTIONS = createNethackOptions(nethackOptions);
+    }
 
     // load and run the module
     let factory = require(path.join(__dirname, "../build/nethack.js"));
@@ -135,6 +143,37 @@ function decodeSelected(how) {
 function getArg(name, ptr, type) {
     let {getPointerValue} = globalThis.nethackGlobal.helpers;
     return (type === "o") ? ptr : getPointerValue(name, Module.getValue(ptr, "*"), type);
+}
+
+let optionMap = new Map([
+    ["autoquiver", "boolean"],
+    ["name", "string"],
+]);
+
+function createNethackOptions(opt) {
+    let optStr = [];
+    for (let key in opt) {
+        if (!optionMap.has(key)) {
+            throw new TypeError(`NetHack option not recognized: ${key}`);
+        }
+
+        let type = optionMap.get(key);
+        checkType(key, opt[key], type);
+        switch (type) {
+        case "string": optStr.push(`${key}:${opt[key]}`); break;
+        case "boolean": optStr.push(`${opt[key] ? "" : "!"}${key}`); break;
+        default: throw new Error(`unknown type:${type}`);
+        }
+    }
+
+    return optStr.join(",");
+    // return "name:Bubba";
+}
+
+function checkType(key, val, type) {
+    if (typeof val !== type) {
+        throw new Error(`Expected NetHack option '${key}' to be ${type}`);
+    }
 }
 
 // TODO: ES6 'import' style module
